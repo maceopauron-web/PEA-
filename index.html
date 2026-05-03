@@ -1,32 +1,119 @@
-// Configuration de tes actifs (à synchroniser avec Dashboard_PEA_Optimise.xlsx)
-const portfolio = [
-    { name: "MSCI World", ticker: "CW8.PA", parts: 196 },
-    { name: "Émergents ESG", ticker: "PABEM.PA", parts: 11 }
-];
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon PEA Temps Réel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-white font-sans">
 
-async function updateLivePrices() {
-    console.log("Récupération des cours en direct...");
-    
-    for (let asset of portfolio) {
-        try {
-            // Utilisation d'une API de tracking (Exemple avec Yahoo Finance via un moteur de recherche de prix)
-            // Note : Dans un vrai projet, on utilise une clé API comme Alpha Vantage ou TwelveData
-            const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}`);
-            const data = await response.json();
-            
-            const price = data.chart.result[0].meta.regularMarketPrice;
-            const totalValue = (price * asset.parts).toFixed(2);
-            
-            console.log(`${asset.name} : ${price}€ (Total: ${totalValue}€)`);
-            
-            // Ici on met à jour le HTML dynamiquement
-            // document.getElementById(`valeur-${asset.ticker}`).innerText = totalValue + " €";
-            
-        } catch (error) {
-            console.error("Erreur de récupération pour " + asset.name, error);
+    <!-- Header -->
+    <nav class="bg-slate-800 border-b border-slate-700 p-4 shadow-xl">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-cyan-400"><i class="fas fa-bolt mr-2"></i>Live PEA Tracker</h1>
+            <div id="last-update" class="text-xs text-slate-400 italic">Chargement des cours...</div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-6">
+        <!-- Dashboard Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <p class="text-slate-400 text-sm uppercase font-semibold">Valorisation Totale</p>
+                <p id="total-val" class="text-3xl font-black text-white">--- €</p>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg border-l-4 border-emerald-500">
+                <p class="text-slate-400 text-sm uppercase font-semibold">Plus-Value Totale</p>
+                <p id="total-gain" class="text-3xl font-black text-emerald-400">--- €</p>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg border-l-4 border-cyan-500">
+                <p class="text-slate-400 text-sm uppercase font-semibold">Performance</p>
+                <p id="total-perf" class="text-3xl font-black text-cyan-400">--- %</p>
+            </div>
+        </div>
+
+        <!-- Tableau des Actifs -->
+        <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+            <table class="w-full text-left">
+                <thead class="bg-slate-900/50 text-slate-400 text-xs uppercase">
+                    <tr>
+                        <th class="p-4">ETF</th>
+                        <th class="p-4">Cours Live</th>
+                        <th class="p-4">Parts</th>
+                        <th class="p-4">Valeur</th>
+                        <th class="p-4">Gain</th>
+                    </tr>
+                </thead>
+                <tbody id="assets-table" class="divide-y divide-slate-700">
+                    <!-- Les lignes seront générées ici par le JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-4 text-slate-500 text-xs italic text-center">Données basées sur Dashboard_PEA_Optimise.xlsx</p>
+    </main>
+
+    <!-- LE CERVEAU JAVASCRIPT -->
+    <script>
+        // 1. Tes données issues du fichier Dashboard_PEA_Optimise.xlsx
+        const myAssets = [
+            { name: "MSCI World Amundi", ticker: "CW8.PA", parts: 196, totalInvested: 1054.85 },
+            { name: "Émergents ESG Amundi", ticker: "PABEM.PA", parts: 11, totalInvested: 324.62 }
+        ];
+
+        async function fetchLivePrices() {
+            let grandTotalValue = 0;
+            let grandTotalInvested = 0;
+            const tableBody = document.getElementById('assets-table');
+            tableBody.innerHTML = ''; // On vide le tableau avant de remplir
+
+            for (let asset of myAssets) {
+                try {
+                    // Appel à l'API Yahoo Finance (via un proxy pour éviter les blocages)
+                    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}?interval=1d&range=1d`);
+                    const data = await response.json();
+                    
+                    const livePrice = data.chart.result[0].meta.regularMarketPrice;
+                    const currentValue = livePrice * asset.parts;
+                    const gain = currentValue - asset.totalInvested;
+                    const gainPercent = (gain / asset.totalInvested) * 100;
+
+                    grandTotalValue += currentValue;
+                    grandTotalInvested += asset.totalInvested;
+
+                    // Ajout de la ligne au tableau
+                    tableBody.innerHTML += `
+                        <tr class="hover:bg-slate-700/30 transition">
+                            <td class="p-4 font-bold text-cyan-400">${asset.name}</td>
+                            <td class="p-4 font-mono">${livePrice.toFixed(2)} €</td>
+                            <td class="p-4 text-slate-400">${asset.parts}</td>
+                            <td class="p-4 font-bold">${currentValue.toLocaleString()} €</td>
+                            <td class="p-4 ${gain >= 0 ? 'text-emerald-400' : 'text-red-400'} font-semibold">
+                                ${gain >= 0 ? '+' : ''}${gain.toFixed(2)} € (${gainPercent.toFixed(2)}%)
+                            </td>
+                        </tr>
+                    `;
+                } catch (error) {
+                    console.error("Erreur pour " + asset.name, error);
+                }
+            }
+
+            // Mise à jour des compteurs globaux
+            const totalGain = grandTotalValue - grandTotalInvested;
+            const totalPerf = (totalGain / grandTotalInvested) * 100;
+
+            document.getElementById('total-val').innerText = grandTotalValue.toLocaleString() + " €";
+            document.getElementById('total-gain').innerText = (totalGain >= 0 ? '+' : '') + totalGain.toLocaleString() + " €";
+            document.getElementById('total-perf').innerText = totalPerf.toFixed(2) + " %";
+            document.getElementById('last-update').innerText = "Mis à jour à : " + new Date().toLocaleTimeString();
         }
-    }
-}
 
-// Mettre à jour au chargement de la page
-window.onload = updateLivePrices;
+        // Lancer l'actualisation au chargement
+        fetchLivePrices();
+        
+        // Optionnel : Actualiser toutes les 5 minutes automatiquement
+        setInterval(fetchLivePrices, 300000);
+    </script>
+</body>
+</html>
