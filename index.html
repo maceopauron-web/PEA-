@@ -1,20 +1,32 @@
-// Exemple de logique pour automatiser le calcul
-const mesActifs = [
-    { name: "MSCI World", ticker: "CW8.PA", parts: 196, pru: 5.38 },
-    { name: "Emergents ESG", ticker: "PABEM.PA", parts: 11, pru: 29.51 }
+// Configuration de tes actifs (à synchroniser avec Dashboard_PEA_Optimise.xlsx)
+const portfolio = [
+    { name: "MSCI World", ticker: "CW8.PA", parts: 196 },
+    { name: "Émergents ESG", ticker: "PABEM.PA", parts: 11 }
 ];
 
-async function updatePrices() {
-    for (let actif of mesActifs) {
-        // Ici, on imagine l'appel à un tracker (ex: Yahoo Finance API)
-        const response = await fetch(`https://api.exemple.com/quote/${actif.ticker}`);
-        const data = await response.json();
-        
-        const coursActuel = data.price; // Le prix récupéré sur le web
-        const valorisation = coursActuel * actif.parts;
-        const plusValue = valorisation - (actif.pru * actif.parts);
-        
-        // Mise à jour automatique de l'interface HTML
-        console.log(`${actif.name} vaut maintenant ${valorisation}€`);
+async function updateLivePrices() {
+    console.log("Récupération des cours en direct...");
+    
+    for (let asset of portfolio) {
+        try {
+            // Utilisation d'une API de tracking (Exemple avec Yahoo Finance via un moteur de recherche de prix)
+            // Note : Dans un vrai projet, on utilise une clé API comme Alpha Vantage ou TwelveData
+            const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${asset.ticker}`);
+            const data = await response.json();
+            
+            const price = data.chart.result[0].meta.regularMarketPrice;
+            const totalValue = (price * asset.parts).toFixed(2);
+            
+            console.log(`${asset.name} : ${price}€ (Total: ${totalValue}€)`);
+            
+            // Ici on met à jour le HTML dynamiquement
+            // document.getElementById(`valeur-${asset.ticker}`).innerText = totalValue + " €";
+            
+        } catch (error) {
+            console.error("Erreur de récupération pour " + asset.name, error);
+        }
     }
 }
+
+// Mettre à jour au chargement de la page
+window.onload = updateLivePrices;
